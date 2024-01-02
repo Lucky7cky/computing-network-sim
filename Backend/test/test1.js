@@ -46,3 +46,12 @@ let newResult = result.map((item) => {
 });
 
 console.log(newResult);
+
+let example = {
+    startNode: "地市骨干P3_1",
+    endNode: "主汇聚P1",
+    latencyTolerance: 50,
+    bandwidth: 1,
+    isEstablish: true,
+    holdingTime: 3600,
+};
