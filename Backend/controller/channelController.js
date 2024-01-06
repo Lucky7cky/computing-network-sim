@@ -247,26 +247,164 @@ exports.channelCTController = (req, res) => {
 };
 
 exports.channelCXController = (req, res) => {
-    const seachLinkInfoSql = "SELECT name, adjList FROM node1";
+    const { startNode } = req.body;
+    if (!startNode) {
+        return res.send({ code: 1, message: "startNode is null" });
+    }
 
-    db.query(seachLinkInfoSql, (err, result) => {
+    const seachNodeInfoSql = "SELECT name, adjList FROM node1";
+    let graph = {};
+    graph.adjList = new Map();
+    graph.vertices = [];
+
+    db.query(seachNodeInfoSql, (err, result) => {
         if (err) return res.send({ code: 1, message: err.message });
-
-        let linkInfo = [];
 
         result.map((item) => {
             let adjList = JSON.parse(item.adjList);
-            for (const key in adjList) {
-                let newItem = {};
-                newItem.linkName = item.name + "---" + key;
-                newItem.linkDelay = adjList[key].delay;
-                newItem.linkOccupy = adjList[key].PHYs;
-                linkInfo.push(newItem);
-            }
+            graph.vertices.push(item.name);
+            graph.adjList.set(item.name, new Map());
 
-            return true;
+            for (const key in adjList) {
+                graph.adjList.get(item.name).set(key, adjList[key]);
+            }
         });
 
-        return res.send({ code: 0, message: "success", data: linkInfo });
+        function dijkstra(graph, start, end) {
+            const top = 0;
+            const parent = (i) => ((i + 1) >> 1) - 1;
+            const left = (i) => (i << 1) + 1;
+            const right = (i) => (i + 1) << 1;
+
+            class PriorityQueue {
+                constructor(comparator = (a, b) => a > b) {
+                    this._heap = [];
+                    this._comparator = comparator;
+                }
+
+                size() {
+                    return this._heap.length;
+                }
+
+                isEmpty() {
+                    return this.size() == 0;
+                }
+
+                peek() {
+                    return this._heap[top];
+                }
+
+                enqueue(...values) {
+                    values.forEach((value) => {
+                        this._heap.push(value);
+                        this._siftUp();
+                    });
+                    return this.size();
+                }
+
+                dequeue() {
+                    const poppedValue = this.peek();
+                    const bottom = this.size() - 1;
+                    if (bottom > top) this._swap(top, bottom);
+                    this._heap.pop();
+                    this._siftDown;
+                    return poppedValue;
+                }
+
+                replace(value) {
+                    const replacedValue = this.peek();
+                    this._heap[top] = value;
+                    this._siftDown();
+                    return replacedValue;
+                }
+
+                _greater(i, j) {
+                    return this._comparator(this._heap[i], this._heap[j]);
+                }
+
+                _swap(i, j) {
+                    [this._heap[i], this._heap[j]] = [this._heap[j], this._heap[i]];
+                }
+
+                _siftUp() {
+                    let node = this.size() - 1;
+                    while (node > top && this._greater(node, parent(node))) {
+                        this._swap(node, parent(node));
+                        node = parent(node);
+                    }
+                }
+
+                _siftDown() {
+                    let node = top;
+                    while (
+                        (left(node) < this.size() && this._greater(left(node), node)) ||
+                        (right(node) < this.size() && this._greater(right(node), node))
+                    ) {
+                        let maxChild =
+                            right(node) < this.size() && this._greater(right(node), left(node))
+                                ? right(node)
+                                : left(node);
+                        this._swap(node, maxChild);
+                        node = maxChild;
+                    }
+                }
+            }
+
+            const vertices = graph.vertices;
+            const adjList = graph.adjList;
+            const distances = new Map();
+            const predecessors = new Map();
+            const queue = new PriorityQueue();
+            for (let i = 0; i < vertices.length; i++) {
+                distances.set(vertices[i], Infinity);
+                predecessors.set(vertices[i], null);
+            }
+
+            distances.set(start, 0);
+            queue.enqueue(start, 0);
+            while (!queue.isEmpty()) {
+                let u = queue.dequeue().element;
+
+                let neighbors = adjList.get(u);
+                if (!neighbors) continue;
+                for (let [neighbor, val] of neighbors) {
+                    if (distances.get(neighbor) > distances.get(u) + val.delay) {
+                        distances.set(neighbor, distances.get(u) + val.delay);
+                        predecessors.set(neighbor, u);
+                        queue.enqueue(neighbor, distances.get(neighbor));
+                    }
+                }
+            }
+            let path = [];
+            let u = end;
+            while (u !== null) {
+                path.push(u);
+                u = predecessors.get(u);
+            }
+            return path.reverse();
+        }
+
+        function averagePath(startNode) {
+            let sum = 0,
+                base = graph.vertices.length,
+                transmission_cost = 0;
+
+            for (let node of graph.vertices) {
+                let pathn = dijkstra(graph, startNode, node);
+                for (let i = 0; i < pathn.length - 1; i++) {
+                    sum += graph.adjList.get(pathn[i]).get(pathn[i + 1]).delay;
+                }
+            }
+
+            transmission_cost = sum / base;
+
+            let ans = {
+                pathLatency: transmission_cost,
+            };
+
+            return res.send({ code: 0, message: "success", data: ans });
+        }
+
+        averagePath(startNode);
     });
 };
