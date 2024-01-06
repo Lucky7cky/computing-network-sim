@@ -363,7 +363,7 @@ exports.channelCXController = (req, res) => {
             distances.set(start, 0);
             queue.enqueue(start, 0);
             while (!queue.isEmpty()) {
-                let u = queue.dequeue().element;
+                let u = queue.dequeue();
 
                 let neighbors = adjList.get(u);
                 if (!neighbors) continue;
