@@ -221,9 +221,21 @@ exports.channelCTController = (req, res) => {
 
             //obj += minPath.hopCount * flow.bandwidth;
 
+            function mixMapToObj(mixMap) {
+                for (const key in mixMap) {
+                    let map = mixMap[key];
+                    let obj = {};
+                    for (let [key, value] of map) {
+                        obj[key] = value;
+                    }
+                    mixMap[key] = obj;
+                }
+                return mixMap;
+            }
+
             let ans = {
                 path: minPath.path,
-                slotIndex: slotIndex,
+                slotIndex: mixMapToObj(slotIndex),
                 pathLatency: minPath.delay,
                 isEstablish: isEstablish,
                 holdingTime: holdingTime,
